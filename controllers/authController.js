@@ -25,15 +25,15 @@ const generateTokens = (id) => {
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
-    const user = await User.create({ name, email, password });
+    const user = await User.create({ name, email, password, role });
     const tokens = generateTokens(user._id);
 
     res.status(201).json({
       success: true,
       ...tokens,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage || '' },
     });
   } catch (error) {
     next(error);
@@ -66,7 +66,7 @@ exports.login = async (req, res, next) => {
     res.status(200).json({
       success: true,
       ...tokens,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage || '' },
     });
   } catch (error) {
     next(error);
@@ -79,6 +79,23 @@ exports.login = async (req, res, next) => {
 exports.getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user profile image
+// @route   PUT /api/auth/profile-image
+// @access  Private
+exports.updateProfileImage = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    user.profileImage = req.body.profileImage;
+    await user.save();
     res.status(200).json({ success: true, data: user });
   } catch (error) {
     next(error);
@@ -102,6 +119,8 @@ exports.getUsers = async (req, res, next) => {
 // @access  Public
 exports.forgotPassword = async (req, res, next) => {
   let user;
+  let resetToken;
+  let resetUrl;
   try {
     const { email } = req.body;
     if (!email) {
@@ -114,12 +133,12 @@ exports.forgotPassword = async (req, res, next) => {
     }
 
     // Generate reset token and save hashed version to DB
-    const resetToken = user.getResetPasswordToken();
+    resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
 
     // Build reset URL pointing to frontend
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
+    resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     // Styled email body
     const htmlMessage = `
@@ -164,6 +183,20 @@ exports.forgotPassword = async (req, res, next) => {
     res.status(200).json({ success: true, message: 'Password reset email sent' });
 
   } catch (error) {
+    // In local development, bypass SMTP failures to allow testing fake/test emails
+    if (process.env.NODE_ENV !== 'production' && user && resetToken && resetUrl) {
+      console.log('\n--- 🔑 DEVELOPMENT PASSWORD RESET LINK 🔑 ---');
+      console.log(`User Email: ${user.email}`);
+      console.log(`Reset URL:  ${resetUrl}`);
+      console.log('---------------------------------------------\n');
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Password reset link generated (Development Mode)',
+        resetUrl: resetUrl 
+      });
+    }
+
     // Always clear the token if anything failed
     if (user) {
       user.resetPasswordToken = undefined;

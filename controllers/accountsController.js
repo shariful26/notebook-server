@@ -1,4 +1,5 @@
 const Account = require('../models/Account');
+const nodemailer = require('nodemailer');
 
 // @desc    Get all accounts (with virtual currentBalance)
 // @route   GET /api/accounts
@@ -50,7 +51,7 @@ exports.createAccount = async (req, res, next) => {
 // @access  Private
 exports.addTransaction = async (req, res, next) => {
   try {
-    const { amount, type, note } = req.body;
+    const { amount, type, note, proofImage } = req.body;
 
     if (!amount || !type) {
       return res.status(400).json({ success: false, error: 'Please provide amount and type (plus/minus)' });
@@ -66,6 +67,7 @@ exports.addTransaction = async (req, res, next) => {
       amount: Number(amount),
       type,
       note,
+      proofImage,
       date: Date.now()
     });
 
@@ -224,6 +226,97 @@ exports.shareAllAccounts = async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'All accounts shared successfully' });
   } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get all accounts for all users (Admin only)
+// @route   GET /api/accounts/admin/all
+// @access  Private/Admin
+exports.getAllAccountsAdmin = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied: Admin only' });
+    }
+
+    const accounts = await Account.find({ isDeleted: { $ne: true } })
+      .populate('userId', 'name email')
+      .sort('name');
+
+    res.status(200).json({
+      success: true,
+      count: accounts.length,
+      data: accounts,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.emailStatement = async (req, res, next) => {
+  let email;
+  let filename;
+  let pdfData;
+  let subject;
+  let message;
+  try {
+    ({ email, filename, pdfData, subject, message } = req.body);
+    if (!email || !pdfData) {
+      return res.status(400).json({ success: false, error: 'Please provide email and pdfData' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailSubject = subject || `📊 Smart Notebook - Statement: ${filename.replace('.pdf', '')}`;
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; padding: 32px; border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.15);">
+        <h2 style="color: #6366f1; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;">📊 Account Statement / হিসাব বিবরণী</h2>
+        <div style="color: #cbd5e1; font-size: 1rem; line-height: 1.6; margin-bottom: 24px; white-space: pre-wrap;">
+          ${message || 'Please find attached the requested account statement PDF file.'}
+        </div>
+        <p style="color: #94a3b8; font-size: 0.9rem; font-style: italic; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; display: inline-block;">
+          Attached PDF: <strong>${filename}</strong>
+        </p>
+        <p style="color: #64748b; font-size: 0.85rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px; margin-top: 24px;">
+          Sent automatically by Smart Notebook. Please do not reply to this email.
+        </p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Smart Notebook" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: mailSubject,
+      html: mailHtml,
+      attachments: [
+        {
+          filename: filename,
+          content: pdfData,
+          encoding: 'base64'
+        }
+      ]
+    });
+
+    res.status(200).json({ success: true, message: 'Statement emailed successfully' });
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n--- 📊 DEVELOPMENT EMAIL STATEMENT BYPASS 📊 ---');
+      console.log(`To: ${email}`);
+      console.log(`Filename: ${filename}`);
+      console.log(`PDF Size: ~${pdfData ? Math.round(pdfData.length * 0.75 / 1024) : 0} KB`);
+      console.log('------------------------------------------------\n');
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Statement generated and simulated (Development Mode)'
+      });
+    }
     next(error);
   }
 };

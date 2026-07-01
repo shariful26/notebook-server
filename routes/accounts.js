@@ -8,7 +8,9 @@ const {
   shareAllAccounts,
   getDeletedAccounts,
   restoreAccount,
-  hardDeleteAccount
+  hardDeleteAccount,
+  getAllAccountsAdmin,
+  emailStatement
 } = require('../controllers/accountsController');
 
 const { protect } = require('../middleware/auth');
@@ -16,6 +18,12 @@ const { protect } = require('../middleware/auth');
 const router = express.Router();
 
 router.use(protect);
+
+router.route('/email-statement')
+  .post(emailStatement);
+
+router.route('/admin/all')
+  .get(getAllAccountsAdmin);
 
 router.route('/deleted')
   .get(getDeletedAccounts);
