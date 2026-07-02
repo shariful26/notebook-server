@@ -3,6 +3,7 @@ const {
   getAccounts,
   createAccount,
   addTransaction,
+  deleteTransaction,
   deleteAccount,
   shareAccount,
   shareAllAccounts,
@@ -45,6 +46,9 @@ router.route('/share-all')
 
 router.route('/:id/transaction')
   .post(addTransaction);
+
+router.route('/:id/transaction/:transactionId')
+  .delete(deleteTransaction);
 
 router.route('/:id/share')
   .post(shareAccount);

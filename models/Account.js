@@ -47,6 +47,11 @@ const accountSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    baseNote: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     transactions: [transactionSchema],
     isDeleted: {
       type: Boolean,

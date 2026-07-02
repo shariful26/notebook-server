@@ -35,6 +35,17 @@ exports.createAccount = async (req, res, next) => {
   try {
     req.body.userId = req.user.id;
 
+    const baseVal = Number(req.body.baseAmount) || 0;
+    if (baseVal !== 0) {
+      req.body.transactions = [{
+        amount: Math.abs(baseVal),
+        type: baseVal > 0 ? 'plus' : 'minus',
+        note: req.body.baseNote || '',
+        date: Date.now()
+      }];
+    }
+    req.body.baseAmount = 0;
+
     const account = await Account.create(req.body);
 
     res.status(201).json({
@@ -70,6 +81,38 @@ exports.addTransaction = async (req, res, next) => {
       proofImage,
       date: Date.now()
     });
+
+    await account.save();
+
+    res.status(200).json({
+      success: true,
+      data: account,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete a transaction from an account
+// @route   DELETE /api/accounts/:id/transaction/:transactionId
+// @access  Private
+exports.deleteTransaction = async (req, res, next) => {
+  try {
+    const account = await Account.findOne({ _id: req.params.id, userId: req.user.id, isDeleted: { $ne: true } });
+
+    if (!account) {
+      return res.status(404).json({ success: false, error: 'Account not found or you are not the owner' });
+    }
+
+    const trxIndex = account.transactions.findIndex(
+      (t) => t._id.toString() === req.params.transactionId
+    );
+
+    if (trxIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Transaction not found' });
+    }
+
+    account.transactions.splice(trxIndex, 1);
 
     await account.save();
 
