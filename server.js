@@ -13,14 +13,18 @@ dotenv.config();
 let isConnected = false;
 
 const connectDB = async () => {
-  if (isConnected) return;
+  if (isConnected && mongoose.connection.readyState === 1) return;
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    const mongoUri = process.env.MONGO_URI || 'mongodb+srv://notebookUser:F12udk1ZQ7ilE1IA@cluster0.xjpgufh.mongodb.net/smart_notebook?retryWrites=true&w=majority';
+    const conn = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+    });
     isConnected = true;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
     console.error(`Error connecting to MongoDB: ${err.message}`);
-    // Do NOT call process.exit(1) in serverless — it crashes the entire function
+    isConnected = false;
+    throw new Error(`Database Connection Error: ${err.message}`);
   }
 };
 
