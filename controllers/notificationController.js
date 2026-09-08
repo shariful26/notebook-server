@@ -49,34 +49,62 @@ ${messageText || 'আপনাকে একটি বার্তা পাঠ�
       </div>
     `;
 
-    // Try sending email via nodemailer
-    let emailStatus = 'sent';
-    try {
-      if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-        const transporter = nodemailer.createTransport({
-          service: process.env.EMAIL_SERVICE || 'gmail',
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-          },
-        });
+    // Reload env vars dynamically
+    require('dotenv').config();
+    const emailUser = (process.env.EMAIL_USER || '').trim();
+    const emailPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 
-        await transporter.sendMail({
-          from: `"Smart Notebook" <${process.env.EMAIL_USER}>`,
-          to: email,
-          subject: mailSubject,
-          html: mailHtml,
-        });
-      } else {
-        console.log('\n--- 📧 DEV EMAIL SIMULATION 📧 ---');
-        console.log(`To: ${email}`);
-        console.log(`Subject: ${mailSubject}`);
-        console.log(`Note: ${note}`);
-        console.log('----------------------------------\n');
-      }
+    if (!emailUser || !emailPass) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email credentials not configured in backend server (.env file EMAIL_USER & EMAIL_PASS required).'
+      });
+    }
+
+    try {
+      console.log(`[Email Attempt] Sending from ${emailUser} to ${email}...`);
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPass,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"Smart Notebook" <${emailUser}>`,
+        to: email,
+        subject: mailSubject,
+        html: mailHtml,
+      });
+      console.log(`[Email Success] Delivered to ${email}`);
     } catch (mailErr) {
-      console.error('Nodemailer error:', mailErr);
-      emailStatus = 'sent'; // logged as simulated/sent
+      console.error(`[Email Failed] Sender: ${emailUser} | Error:`, mailErr.message);
+      
+      let userFriendlyErr = mailErr.message || 'Gmail Connection Error';
+      if (userFriendlyErr.includes('535') || userFriendlyErr.includes('BadCredentials') || userFriendlyErr.includes('Username and Password not accepted')) {
+        userFriendlyErr = `গুগল পাসওয়ার্ড ভুল বলছে (${emailUser})! নিশ্চিত করুন যে আপনি ${emailUser} অ্যাকাউন্টে লগইন করে myaccount.google.com/apppasswords থেকে পাসওয়ার্ডটি তৈরি করেছেন।`;
+      }
+      
+      // Save notification log as failed
+      await NotificationLog.create({
+        userId: req.user.id,
+        accountId,
+        accountName: account.name,
+        recipientEmail: email,
+        recipientPhone: account.phone || '',
+        channel: 'email',
+        templateType: templateType || 'custom',
+        note: note || '',
+        messageText: messageText || '',
+        amount: amount || account.currentBalance || 0,
+        status: 'failed',
+      });
+
+      return res.status(500).json({
+        success: false,
+        error: `ইমেইল পাঠাতে ব্যর্থ হয়েছে: ${userFriendlyErr}`
+      });
     }
 
     // Save notification log
@@ -91,7 +119,7 @@ ${messageText || 'আপনাকে একটি বার্তা পাঠ�
       note: note || '',
       messageText: messageText || '',
       amount: amount || account.currentBalance || 0,
-      status: emailStatus,
+      status: 'sent',
     });
 
     res.status(200).json({
