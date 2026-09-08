@@ -57,6 +57,34 @@ exports.createAccount = async (req, res, next) => {
   }
 };
 
+// @desc    Update account (name, phone, email, baseNote)
+// @route   PUT /api/accounts/:id
+// @access  Private
+exports.updateAccount = async (req, res, next) => {
+  try {
+    const { name, phone, email, baseNote } = req.body;
+    let account = await Account.findOne({ _id: req.params.id, userId: req.user.id, isDeleted: { $ne: true } });
+
+    if (!account) {
+      return res.status(404).json({ success: false, error: 'Account not found or you are not the owner' });
+    }
+
+    if (name) account.name = name;
+    if (phone !== undefined) account.phone = phone;
+    if (email !== undefined) account.email = email;
+    if (baseNote !== undefined) account.baseNote = baseNote;
+
+    await account.save();
+
+    res.status(200).json({
+      success: true,
+      data: account,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Add a transaction (+ or -) to an account
 // @route   POST /api/accounts/:id/transaction
 // @access  Private

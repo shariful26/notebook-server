@@ -73,19 +73,21 @@ app.use(async (req, res, next) => {
 });
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
-const auth       = require('./routes/auth');
-const notes      = require('./routes/notes');
-const categories = require('./routes/categories');
-const accounts   = require('./routes/accounts');
+const auth          = require('./routes/auth');
+const notes         = require('./routes/notes');
+const categories    = require('./routes/categories');
+const accounts      = require('./routes/accounts');
+const notifications = require('./routes/notifications');
 
 app.get('/', (req, res) => {
   res.send('Smart Notebook API is running...');
 });
 
-app.use('/api/auth',       auth);
-app.use('/api/notes',      notes);
-app.use('/api/categories', categories);
-app.use('/api/accounts',   accounts);
+app.use('/api/auth',          auth);
+app.use('/api/notes',         notes);
+app.use('/api/categories',    categories);
+app.use('/api/accounts',      accounts);
+app.use('/api/notifications', notifications);
 
 // Error handler middleware (must be after routers)
 app.use(errorHandler);

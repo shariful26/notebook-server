@@ -47,6 +47,16 @@ const accountSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    phone: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    email: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     baseNote: {
       type: String,
       default: '',

@@ -11,7 +11,8 @@ const {
   restoreAccount,
   hardDeleteAccount,
   getAllAccountsAdmin,
-  emailStatement
+  emailStatement,
+  updateAccount
 } = require('../controllers/accountsController');
 
 const { protect } = require('../middleware/auth');
@@ -54,6 +55,7 @@ router.route('/:id/share')
   .post(shareAccount);
 
 router.route('/:id')
+  .put(updateAccount)
   .delete(deleteAccount);
 
 module.exports = router;
