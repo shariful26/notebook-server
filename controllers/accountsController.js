@@ -311,6 +311,7 @@ exports.getAllAccountsAdmin = async (req, res, next) => {
     }
 
     const accounts = await Account.find({ isDeleted: { $ne: true } })
+      .select('-transactions.proofImage')
       .populate('userId', 'name email')
       .sort('name');
 

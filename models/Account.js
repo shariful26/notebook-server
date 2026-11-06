@@ -34,6 +34,7 @@ const accountSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+
     sharedWith: [{
       type: mongoose.Schema.ObjectId,
       ref: 'User'
