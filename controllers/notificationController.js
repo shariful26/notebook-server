@@ -194,3 +194,52 @@ exports.getNotificationHistory = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Delete a single notification log
+// @route   DELETE /api/notifications/:id
+// @access  Private
+exports.deleteNotificationLog = async (req, res, next) => {
+  try {
+    const log = await NotificationLog.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        error: 'Notification log not found',
+      });
+    }
+
+    await log.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      data: {},
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete all notification logs (optionally filtered by channel)
+// @route   DELETE /api/notifications
+// @access  Private
+exports.deleteAllNotificationLogs = async (req, res, next) => {
+  try {
+    const filter = { userId: req.user.id };
+    if (req.query.channel && req.query.channel !== 'all') {
+      filter.channel = req.query.channel;
+    }
+
+    await NotificationLog.deleteMany(filter);
+
+    res.status(200).json({
+      success: true,
+      data: {},
+    });
+  } catch (error) {
+    next(error);
+  }
+};
